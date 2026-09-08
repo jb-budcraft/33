@@ -53,6 +53,16 @@ body {
   display: none !important;
 }
 
+.view-home:not([hidden]) {
+  display: flex !important;
+}
+
+.view-weight:not([hidden]),
+.view-core:not([hidden]) {
+  display: block !important;
+  color: var(--fg);
+}
+
 /* —— HOME —— */
 .view-home {
   min-height: calc(100dvh - var(--pad-t) - var(--pad-b));
@@ -275,7 +285,7 @@ body {
 }
 
 .field input::-webkit-calendar-picker-indicator {
-  filter: invert(0.7) sepia(1) saturate(3) hue-rotate(5deg);
+  opacity: 0.6;
 }
 
 .btn {

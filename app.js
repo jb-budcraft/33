@@ -76,13 +76,26 @@
     viewHome.classList.toggle("hidden", !isHome);
     viewWeight.classList.toggle("hidden", !isWeight);
     viewCore.classList.toggle("hidden", !isCore);
+    if (isHome) viewHome.removeAttribute("hidden");
+    else viewHome.setAttribute("hidden", "");
+    if (isWeight) viewWeight.removeAttribute("hidden");
+    else viewWeight.setAttribute("hidden", "");
+    if (isCore) viewCore.removeAttribute("hidden");
+    else viewCore.setAttribute("hidden", "");
 
     document.body.classList.toggle("theme-core", isCore);
     document.body.classList.toggle("theme-weight", isWeight);
     document.body.classList.toggle("screen-home", isHome);
 
-    if (isWeight) renderWeight();
-    if (isCore) renderCore();
+    try {
+      if (isWeight) {
+        if (dateInput) dateInput.value = dateInput.value || todayISO();
+        renderWeight();
+      }
+      if (isCore) renderCore();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   $("openWeight").addEventListener("click", () => showView("weight"));
@@ -92,6 +105,11 @@
   });
 
   // —— weight ——
+  function kgOf(entry) {
+    const n = Number(entry && entry.weight);
+    return Number.isFinite(n) ? n : null;
+  }
+
   function loadWeight() {
     try {
       const raw = localStorage.getItem(WEIGHT_KEY);
@@ -100,7 +118,16 @@
       if (!Array.isArray(parsed) || parsed.length === 0) {
         return [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
       }
-      return parsed;
+      const cleaned = parsed
+        .map((e) => ({
+          id: e.id || uid(),
+          date: e.date,
+          weight: kgOf(e),
+        }))
+        .filter((e) => e.date && e.weight != null);
+      return cleaned.length
+        ? cleaned
+        : [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
     } catch {
       return [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
     }
@@ -415,11 +442,12 @@
   if (!localStorage.getItem(WEIGHT_KEY)) {
     saveWeight([{ id: "seed", date: START_DATE, weight: START_WEIGHT }]);
   }
-  dateInput.value = todayISO();
   setDraft(0);
   showView("home");
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js").then((reg) => {
+      reg.update();
+    }).catch(() => {});
   }
 })();
