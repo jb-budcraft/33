@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="33" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="33 — data" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <title>33</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="screen-home">
+  <main class="app">
+    <!-- HOME -->
+    <section id="viewHome" class="view view-home">
+      <div class="home-brand">33</div>
+      <div class="home-actions">
+        <button type="button" class="gate-btn gate-weight" id="openWeight" data-view="weight">váha</button>
+        <button type="button" class="gate-btn gate-core" id="openCore" data-view="core">cvičení</button>
+      </div>
+    </section>
+
+    <!-- WEIGHT -->
+    <section id="viewWeight" class="view view-weight hidden" hidden>
+      <header class="top">
+        <button type="button" class="back" data-home aria-label="zpět">←</button>
+        <div class="brand">váha</div>
+        <div class="deadline" id="deadline"></div>
+      </header>
+
+      <div class="now">
+        <div class="now-label">teď</div>
+        <div class="now-value unit-kg" id="currentWeight">—</div>
+        <div class="now-meta" id="currentMeta"></div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">7 dní</div>
+          <div class="stat-value" id="weekDelta">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">30 dní</div>
+          <div class="stat-value" id="monthDelta">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">trend</div>
+          <div class="stat-value" id="trendValue">—</div>
+          <div class="stat-sub" id="trendSub"></div>
+        </div>
+      </div>
+
+      <div class="plan" id="planLine"></div>
+
+      <div class="input-block">
+        <label class="field">
+          <span>kg</span>
+          <input id="weightInput" type="number" inputmode="decimal" step="0.1" min="40" max="300" placeholder="0.0" />
+        </label>
+        <label class="field">
+          <span>datum</span>
+          <input id="dateInput" type="date" />
+        </label>
+        <button type="button" class="btn" id="saveBtn">uložit</button>
+      </div>
+
+      <div class="log">
+        <div class="log-head">
+          <span>záznamy</span>
+          <button type="button" class="link" id="exportWeightBtn">export</button>
+        </div>
+        <ul id="weightLog"></ul>
+      </div>
+    </section>
+
+    <!-- CORE / TIME -->
+    <section id="viewCore" class="view view-core hidden" hidden>
+      <header class="top">
+        <button type="button" class="back" data-home aria-label="zpět">←</button>
+        <div class="brand">cvičení</div>
+        <div class="deadline">cíl 15 min / den</div>
+      </header>
+
+      <div class="now">
+        <div class="now-label">dnes</div>
+        <div class="now-value unit-min" id="todayMins">0</div>
+        <div class="now-meta" id="coreMeta"></div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">7 dní</div>
+          <div class="stat-value" id="coreWeek">—</div>
+          <div class="stat-sub">dní ≥15</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">30 dní</div>
+          <div class="stat-value" id="coreMonth">—</div>
+          <div class="stat-sub">dní ≥15</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">průměr</div>
+          <div class="stat-value" id="coreAvg">—</div>
+          <div class="stat-sub">min / den · 7 d</div>
+        </div>
+      </div>
+
+      <div class="plan" id="corePlan"></div>
+
+      <div class="core-input">
+        <div class="draft-row">
+          <div class="draft-label">zápis</div>
+          <div class="draft-value" id="draftMins">0 min</div>
+        </div>
+        <button type="button" class="btn btn-plus" id="plus5">+ 5 min</button>
+        <div class="draft-actions">
+          <button type="button" class="btn ghost" id="draftCancel" disabled>zrušit</button>
+          <button type="button" class="btn" id="draftConfirm" disabled>potvrdit</button>
+        </div>
+      </div>
+
+      <div class="log">
+        <div class="log-head">
+          <span>záznamy</span>
+          <button type="button" class="link" id="exportCoreBtn">export</button>
+        </div>
+        <ul id="coreLog"></ul>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="confirmDialog">
+    <p id="confirmText"></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn ghost" id="confirmCancel">zrušit</button>
+      <button type="button" class="btn" id="confirmOk">smazat</button>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
