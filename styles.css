@@ -179,6 +179,10 @@ body {
   margin-bottom: 16px;
 }
 
+.stats-4 {
+  grid-template-columns: 1fr 1fr;
+}
+
 .stat-label {
   font-size: 11px;
   text-transform: uppercase;
@@ -403,8 +407,8 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.75); }
 @media (max-width: 380px) {
   .input-block { grid-template-columns: 1fr 1fr; }
   .input-block > .btn { grid-column: 1 / -1; }
-  .stats { grid-template-columns: 1fr 1fr; }
-  .stats .stat:last-child { grid-column: 1 / -1; }
+  .stats:not(.stats-4) { grid-template-columns: 1fr 1fr; }
+  .stats:not(.stats-4) .stat:last-child { grid-column: 1 / -1; }
   .top { grid-template-columns: 32px 1fr; }
   .deadline {
     grid-column: 1 / -1;

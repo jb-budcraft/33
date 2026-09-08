@@ -3,6 +3,11 @@
   const START_WEIGHT = 142;
   const TARGET_DATE = "2027-08-06";
   const TARGET_WEIGHT = 109;
+  const HEIGHT_M = 2.05;
+  // NIH/ACSM ~0.45–0.9 kg/týd; u dny+cholesterol střed pásma (ne crash)
+  const PACE_OPT_LO = 0.5;
+  const PACE_OPT_HI = 0.75;
+  const PACE_MAX = 0.9;
   const WEIGHT_KEY = "weight33.entries.v1";
   const CORE_KEY = "weight33.core.v1";
   const DAILY_GOAL = 15;
@@ -26,6 +31,8 @@
     monthDelta: $("monthDelta"),
     trendValue: $("trendValue"),
     trendSub: $("trendSub"),
+    paceValue: $("paceValue"),
+    paceSub: $("paceSub"),
     planLine: $("planLine"),
     todayMins: $("todayMins"),
     coreMeta: $("coreMeta"),
@@ -216,6 +223,29 @@
     return START_WEIGHT - (START_WEIGHT - TARGET_WEIGHT) * (elapsed / TOTAL_DAYS);
   }
 
+  function bmi(kg) {
+    return kg / (HEIGHT_M * HEIGHT_M);
+  }
+
+  /** Weekly loss rate (positive = hubnutí) from ~lookback days, else from start. */
+  function weeklyLossPace(entries, cur, lookbackDays) {
+    if (!cur) return null;
+    const past = weightOnOrBefore(entries, shiftIso(cur.date, -lookbackDays));
+    const from = past && past.date !== cur.date
+      ? past
+      : { date: START_DATE, weight: START_WEIGHT };
+    const days = Math.max(daysBetween(from.date, cur.date), 1);
+    return ((from.weight - cur.weight) / days) * 7;
+  }
+
+  function paceBand(pace) {
+    if (pace == null || Number.isNaN(pace)) return { label: "—", cls: "flat" };
+    if (pace < PACE_OPT_LO) return { label: "pomalu", cls: "bad" };
+    if (pace <= PACE_OPT_HI) return { label: "v pásmu", cls: "ok" };
+    if (pace <= PACE_MAX) return { label: "horní okraj", cls: "flat" };
+    return { label: "rychle", cls: "bad" };
+  }
+
   function renderWeight() {
     const entries = loadWeight();
     const cur = latestWeight(entries);
@@ -229,7 +259,7 @@
       const lost = START_WEIGHT - cur.weight;
       els.currentWeight.textContent = cur.weight.toFixed(1);
       els.currentMeta.textContent =
-        `z ${START_WEIGHT} · −${lost.toFixed(1)} · zbývá ${left.toFixed(1)} kg · ${daysLeft} d`;
+        `z ${START_WEIGHT} · −${lost.toFixed(1)} · zbývá ${left.toFixed(1)} kg · ${daysLeft} d · BMI ${bmi(cur.weight).toFixed(1)}`;
 
       const week = deltaOverDays(entries, cur, 7);
       const month = deltaOverDays(entries, cur, 30);
@@ -240,20 +270,33 @@
       const vsPlan = cur.weight - plan;
       const ahead = vsPlan <= 0.05;
       setStat(els.trendValue, formatDelta(vsPlan), ahead ? "ahead" : "behind");
-      els.trendSub.textContent = ahead ? "pod plánem" : "nad plánem";
+      els.trendSub.textContent = "kg vs plán";
+
+      const pace = weeklyLossPace(entries, cur, 30);
+      const band = paceBand(pace);
+      setStat(
+        els.paceValue,
+        pace == null ? "—" : pace.toFixed(2),
+        band.cls
+      );
+      els.paceSub.textContent =
+        pace == null ? "" : `${band.label} · ${PACE_OPT_LO}–${PACE_OPT_HI}`;
 
       const needWeek = (left / Math.max(daysLeft, 1)) * 7;
       els.planLine.innerHTML =
+        `cílové tempo <strong>${needWeek.toFixed(2)}</strong> kg/týd · ` +
         `plán <strong>${plan.toFixed(1)}</strong> kg · ` +
-        `tempo <strong>${needWeek.toFixed(2)}</strong> kg/týd · ` +
-        `cíl <strong>${TARGET_WEIGHT}</strong> kg`;
+        `cíl <strong>${TARGET_WEIGHT}</strong> · ` +
+        `výzkum <strong>${PACE_OPT_LO}–${PACE_OPT_HI}</strong> kg/týd`;
     } else {
       els.currentWeight.textContent = "—";
       els.currentMeta.textContent = "";
       setStat(els.weekDelta, "—", "flat");
       setStat(els.monthDelta, "—", "flat");
       setStat(els.trendValue, "—", "flat");
+      setStat(els.paceValue, "—", "flat");
       els.trendSub.textContent = "";
+      els.paceSub.textContent = "";
       els.planLine.textContent = "";
     }
 
