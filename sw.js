@@ -1,4 +1,4 @@
-const CACHE = "weight33-v2";
+const CACHE = "weight33-v3";
 const ASSETS = [
   "./",
   "./index.html",

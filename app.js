@@ -73,6 +73,9 @@
     viewHome.hidden = !isHome;
     viewWeight.hidden = !isWeight;
     viewCore.hidden = !isCore;
+    viewHome.classList.toggle("hidden", !isHome);
+    viewWeight.classList.toggle("hidden", !isWeight);
+    viewCore.classList.toggle("hidden", !isCore);
 
     document.body.classList.toggle("theme-core", isCore);
     document.body.classList.toggle("theme-weight", isWeight);
