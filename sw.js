@@ -1,11 +1,9 @@
-const CACHE = "weight33-v4";
+const CACHE = "weight33-v5";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./styles.css?v=4",
-  "./app.js",
-  "./app.js?v=4",
+  "./styles.css?v=5",
+  "./app.js?v=5",
   "./manifest.webmanifest",
   "./icon-180.png",
   "./icon-192.png",
@@ -28,8 +26,12 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  // Network-first for HTML/JS/CSS so iPhone gets fixes
-  if (req.mode === "navigate" || req.destination === "script" || req.destination === "style") {
+  const live =
+    req.mode === "navigate" ||
+    req.destination === "script" ||
+    req.destination === "style";
+
+  if (live) {
     event.respondWith(
       fetch(req)
         .then((res) => {
@@ -41,7 +43,6 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-  event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req))
-  );
+
+  event.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
 });

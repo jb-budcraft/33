@@ -11,20 +11,18 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icon-180.png" />
   <title>33</title>
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
-<body class="screen-home">
+<body>
   <main class="app">
-    <!-- HOME -->
     <section id="viewHome" class="view view-home">
       <div class="home-brand">33</div>
       <div class="home-actions">
-        <button type="button" class="gate-btn gate-weight" id="openWeight" data-view="weight">váha</button>
-        <button type="button" class="gate-btn gate-core" id="openCore" data-view="core">cvičení</button>
+        <button type="button" class="gate-btn gate-weight" id="openWeight">váha</button>
+        <button type="button" class="gate-btn gate-core" id="openCore">cvičení</button>
       </div>
     </section>
 
-    <!-- WEIGHT -->
     <section id="viewWeight" class="view view-weight" hidden>
       <header class="top">
         <button type="button" class="back" data-home aria-label="zpět">←</button>
@@ -73,11 +71,10 @@
           <span>záznamy</span>
           <button type="button" class="link" id="exportWeightBtn">export</button>
         </div>
-        <ul id="weightLog"></ul>
+        <ul id="weightLog" class="log-list"></ul>
       </div>
     </section>
 
-    <!-- CORE / TIME -->
     <section id="viewCore" class="view view-core" hidden>
       <header class="top">
         <button type="button" class="back" data-home aria-label="zpět">←</button>
@@ -128,7 +125,7 @@
           <span>záznamy</span>
           <button type="button" class="link" id="exportCoreBtn">export</button>
         </div>
-        <ul id="coreLog"></ul>
+        <ul id="coreLog" class="log-list"></ul>
       </div>
     </section>
   </main>
@@ -141,6 +138,6 @@
     </div>
   </dialog>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

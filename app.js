@@ -6,25 +6,39 @@
   const WEIGHT_KEY = "weight33.entries.v1";
   const CORE_KEY = "weight33.core.v1";
   const DAILY_GOAL = 15;
+  const SEED = Object.freeze({ id: "seed", date: START_DATE, weight: START_WEIGHT });
 
   const $ = (id) => document.getElementById(id);
+  const els = {
+    home: $("viewHome"),
+    weight: $("viewWeight"),
+    core: $("viewCore"),
+    weightInput: $("weightInput"),
+    dateInput: $("dateInput"),
+    weightLog: $("weightLog"),
+    coreLog: $("coreLog"),
+    dialog: $("confirmDialog"),
+    confirmText: $("confirmText"),
+    deadline: $("deadline"),
+    currentWeight: $("currentWeight"),
+    currentMeta: $("currentMeta"),
+    weekDelta: $("weekDelta"),
+    monthDelta: $("monthDelta"),
+    trendValue: $("trendValue"),
+    trendSub: $("trendSub"),
+    planLine: $("planLine"),
+    todayMins: $("todayMins"),
+    coreMeta: $("coreMeta"),
+    coreWeek: $("coreWeek"),
+    coreMonth: $("coreMonth"),
+    coreAvg: $("coreAvg"),
+    corePlan: $("corePlan"),
+    draftMins: $("draftMins"),
+    draftCancel: $("draftCancel"),
+    draftConfirm: $("draftConfirm"),
+  };
 
-  const viewHome = $("viewHome");
-  const viewWeight = $("viewWeight");
-  const viewCore = $("viewCore");
-  const weightInput = $("weightInput");
-  const dateInput = $("dateInput");
-  const weightLog = $("weightLog");
-  const coreLog = $("coreLog");
-  const confirmDialog = $("confirmDialog");
-  const confirmText = $("confirmText");
-  const confirmOk = $("confirmOk");
-  const confirmCancel = $("confirmCancel");
-  const draftMinsEl = $("draftMins");
-  const draftCancel = $("draftCancel");
-  const draftConfirm = $("draftConfirm");
-
-  let pendingDelete = null; // { type: 'weight'|'core', id }
+  let pendingDelete = null;
   let draftMins = 0;
 
   function parseLocalDate(iso) {
@@ -45,10 +59,10 @@
   }
 
   function daysBetween(aIso, bIso) {
-    const a = parseLocalDate(aIso);
-    const b = parseLocalDate(bIso);
-    return Math.round((b - a) / 86400000);
+    return Math.round((parseLocalDate(bIso) - parseLocalDate(aIso)) / 86400000);
   }
+
+  const TOTAL_DAYS = daysBetween(START_DATE, TARGET_DATE);
 
   function todayISO() {
     return toISODate(new Date());
@@ -64,84 +78,105 @@
     return toISODate(d);
   }
 
+  function loadJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback();
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : fallback();
+    } catch {
+      return fallback();
+    }
+  }
+
+  function saveJSON(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  function byDateAsc(a, b, tiebreak) {
+    if (a.date === b.date) return tiebreak(a, b);
+    return a.date < b.date ? -1 : 1;
+  }
+
+  function downloadCsv(name, lines) {
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function setStat(el, text, cls) {
+    el.textContent = text;
+    el.className = `stat-value ${cls}`;
+  }
+
+  function fillLog(listEl, rows) {
+    const frag = document.createDocumentFragment();
+    for (const row of rows) {
+      const li = document.createElement("li");
+      li.innerHTML =
+        `<span class="date">${row.date}</span>` +
+        `<span class="val">${row.val}</span>` +
+        `<button type="button" class="del" aria-label="smazat" data-id="${row.id}">×</button>`;
+      frag.appendChild(li);
+    }
+    listEl.replaceChildren(frag);
+  }
+
+  function askDelete(type, id, message) {
+    pendingDelete = { type, id };
+    els.confirmText.textContent = message;
+    els.dialog.showModal();
+  }
+
   // —— navigation ——
+  const VIEWS = { home: els.home, weight: els.weight, core: els.core };
+
   function showView(name) {
-    const isHome = name === "home";
-    const isWeight = name === "weight";
-    const isCore = name === "core";
-
-    viewHome.hidden = !isHome;
-    viewWeight.hidden = !isWeight;
-    viewCore.hidden = !isCore;
-    viewHome.classList.toggle("hidden", !isHome);
-    viewWeight.classList.toggle("hidden", !isWeight);
-    viewCore.classList.toggle("hidden", !isCore);
-    if (isHome) viewHome.removeAttribute("hidden");
-    else viewHome.setAttribute("hidden", "");
-    if (isWeight) viewWeight.removeAttribute("hidden");
-    else viewWeight.setAttribute("hidden", "");
-    if (isCore) viewCore.removeAttribute("hidden");
-    else viewCore.setAttribute("hidden", "");
-
-    document.body.classList.toggle("theme-core", isCore);
-    document.body.classList.toggle("theme-weight", isWeight);
-    document.body.classList.toggle("screen-home", isHome);
+    for (const [key, el] of Object.entries(VIEWS)) {
+      el.hidden = key !== name;
+    }
+    document.body.classList.toggle("theme-core", name === "core");
+    document.body.classList.toggle("theme-weight", name === "weight");
 
     try {
-      if (isWeight) {
-        if (dateInput) dateInput.value = dateInput.value || todayISO();
+      if (name === "weight") {
+        els.dateInput.value = els.dateInput.value || todayISO();
         renderWeight();
+      } else if (name === "core") {
+        renderCore();
       }
-      if (isCore) renderCore();
     } catch (err) {
       console.error(err);
     }
   }
 
-  $("openWeight").addEventListener("click", () => showView("weight"));
-  $("openCore").addEventListener("click", () => showView("core"));
-  document.querySelectorAll("[data-home]").forEach((btn) => {
-    btn.addEventListener("click", () => showView("home"));
-  });
-
   // —— weight ——
-  function kgOf(entry) {
-    const n = Number(entry && entry.weight);
-    return Number.isFinite(n) ? n : null;
-  }
-
   function loadWeight() {
-    try {
-      const raw = localStorage.getItem(WEIGHT_KEY);
-      if (!raw) return [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        return [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
-      }
-      const cleaned = parsed
-        .map((e) => ({
+    const seed = () => [{ ...SEED }];
+    const parsed = loadJSON(WEIGHT_KEY, seed);
+    if (!parsed.length) return seed();
+    const cleaned = parsed
+      .map((e) => {
+        const weight = Number(e.weight);
+        return {
           id: e.id || uid(),
           date: e.date,
-          weight: kgOf(e),
-        }))
-        .filter((e) => e.date && e.weight != null);
-      return cleaned.length
-        ? cleaned
-        : [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
-    } catch {
-      return [{ id: "seed", date: START_DATE, weight: START_WEIGHT }];
-    }
+          weight: Number.isFinite(weight) ? weight : null,
+        };
+      })
+      .filter((e) => e.date && e.weight != null);
+    return cleaned.length ? cleaned : seed();
   }
 
   function saveWeight(entries) {
-    localStorage.setItem(WEIGHT_KEY, JSON.stringify(entries));
+    saveJSON(WEIGHT_KEY, entries);
   }
 
   function sortedWeight(entries) {
-    return [...entries].sort((a, b) => {
-      if (a.date === b.date) return a.weight - b.weight;
-      return a.date < b.date ? -1 : 1;
-    });
+    return [...entries].sort((a, b) => byDateAsc(a, b, (x, y) => x.weight - y.weight));
   }
 
   function latestWeight(entries) {
@@ -150,24 +185,23 @@
   }
 
   function weightOnOrBefore(entries, targetIso) {
-    const s = sortedWeight(entries).filter((e) => e.date <= targetIso);
-    if (s.length === 0) return null;
-    return s[s.length - 1];
+    let best = null;
+    for (const e of sortedWeight(entries)) {
+      if (e.date <= targetIso) best = e;
+    }
+    return best;
   }
 
-  function deltaOverDays(entries, days) {
-    const cur = latestWeight(entries);
+  function deltaOverDays(entries, cur, days) {
     if (!cur) return null;
-    const pastIso = shiftIso(cur.date, -days);
-    const past = weightOnOrBefore(entries, pastIso);
+    const past = weightOnOrBefore(entries, shiftIso(cur.date, -days));
     if (!past || past.date === cur.date) return null;
-    return { delta: cur.weight - past.weight };
+    return cur.weight - past.weight;
   }
 
   function formatDelta(kg) {
     if (kg == null || Number.isNaN(kg)) return "—";
-    const sign = kg > 0 ? "+" : "";
-    return `${sign}${kg.toFixed(1)}`;
+    return `${kg > 0 ? "+" : ""}${kg.toFixed(1)}`;
   }
 
   function deltaClass(kg) {
@@ -178,9 +212,8 @@
   }
 
   function plannedWeight(onIso) {
-    const total = daysBetween(START_DATE, TARGET_DATE);
-    const elapsed = Math.min(Math.max(daysBetween(START_DATE, onIso), 0), total);
-    return START_WEIGHT - (START_WEIGHT - TARGET_WEIGHT) * (elapsed / total);
+    const elapsed = Math.min(Math.max(daysBetween(START_DATE, onIso), 0), TOTAL_DAYS);
+    return START_WEIGHT - (START_WEIGHT - TARGET_WEIGHT) * (elapsed / TOTAL_DAYS);
   }
 
   function renderWeight() {
@@ -188,266 +221,223 @@
     const cur = latestWeight(entries);
     const nowIso = cur ? cur.date : todayISO();
 
-    $("deadline").textContent = `cíl ${formatCs(TARGET_DATE)}`;
+    els.deadline.textContent = `cíl ${formatCs(TARGET_DATE)}`;
 
     if (cur) {
-      $("currentWeight").textContent = cur.weight.toFixed(1);
       const left = cur.weight - TARGET_WEIGHT;
       const daysLeft = daysBetween(nowIso, TARGET_DATE);
       const lost = START_WEIGHT - cur.weight;
-      $("currentMeta").textContent =
+      els.currentWeight.textContent = cur.weight.toFixed(1);
+      els.currentMeta.textContent =
         `z ${START_WEIGHT} · −${lost.toFixed(1)} · zbývá ${left.toFixed(1)} kg · ${daysLeft} d`;
-    } else {
-      $("currentWeight").textContent = "—";
-      $("currentMeta").textContent = "";
-    }
 
-    const week = deltaOverDays(entries, 7);
-    const month = deltaOverDays(entries, 30);
-    const weekEl = $("weekDelta");
-    const monthEl = $("monthDelta");
-    weekEl.textContent = week ? formatDelta(week.delta) : "—";
-    weekEl.className = `stat-value ${deltaClass(week?.delta)}`;
-    monthEl.textContent = month ? formatDelta(month.delta) : "—";
-    monthEl.className = `stat-value ${deltaClass(month?.delta)}`;
+      const week = deltaOverDays(entries, cur, 7);
+      const month = deltaOverDays(entries, cur, 30);
+      setStat(els.weekDelta, formatDelta(week), deltaClass(week));
+      setStat(els.monthDelta, formatDelta(month), deltaClass(month));
 
-    const trendEl = $("trendValue");
-    const trendSub = $("trendSub");
-    const planLine = $("planLine");
-
-    if (cur) {
       const plan = plannedWeight(nowIso);
       const vsPlan = cur.weight - plan;
-      trendEl.textContent = formatDelta(vsPlan);
-      trendEl.className = `stat-value ${vsPlan <= 0.05 ? "ahead" : "behind"}`;
-      trendSub.textContent = vsPlan <= 0.05 ? "pod plánem" : "nad plánem";
-      const daysLeft = Math.max(daysBetween(nowIso, TARGET_DATE), 1);
-      const needWeek = ((cur.weight - TARGET_WEIGHT) / daysLeft) * 7;
-      planLine.innerHTML =
+      const ahead = vsPlan <= 0.05;
+      setStat(els.trendValue, formatDelta(vsPlan), ahead ? "ahead" : "behind");
+      els.trendSub.textContent = ahead ? "pod plánem" : "nad plánem";
+
+      const needWeek = (left / Math.max(daysLeft, 1)) * 7;
+      els.planLine.innerHTML =
         `plán <strong>${plan.toFixed(1)}</strong> kg · ` +
         `tempo <strong>${needWeek.toFixed(2)}</strong> kg/týd · ` +
         `cíl <strong>${TARGET_WEIGHT}</strong> kg`;
     } else {
-      trendEl.textContent = "—";
-      trendEl.className = "stat-value flat";
-      trendSub.textContent = "";
-      planLine.textContent = "";
+      els.currentWeight.textContent = "—";
+      els.currentMeta.textContent = "";
+      setStat(els.weekDelta, "—", "flat");
+      setStat(els.monthDelta, "—", "flat");
+      setStat(els.trendValue, "—", "flat");
+      els.trendSub.textContent = "";
+      els.planLine.textContent = "";
     }
 
-    weightLog.innerHTML = "";
-    for (const e of sortedWeight(entries).reverse()) {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <span class="date">${formatCs(e.date)}</span>
-        <span class="val">${e.weight.toFixed(1)} kg</span>
-        <button type="button" class="del" aria-label="smazat" data-id="${e.id}">×</button>
-      `;
-      weightLog.appendChild(li);
-    }
+    fillLog(
+      els.weightLog,
+      sortedWeight(entries)
+        .reverse()
+        .map((e) => ({
+          id: e.id,
+          date: formatCs(e.date),
+          val: `${e.weight.toFixed(1)} kg`,
+        }))
+    );
   }
 
-  $("saveBtn").addEventListener("click", () => {
-    const w = Number(String(weightInput.value).replace(",", "."));
-    const d = dateInput.value || todayISO();
-    if (!Number.isFinite(w) || w < 40 || w > 300) {
-      weightInput.focus();
-      return;
-    }
-    const entries = loadWeight().filter((e) => e.date !== d);
-    entries.push({ id: uid(), date: d, weight: Math.round(w * 10) / 10 });
-    saveWeight(entries);
-    weightInput.value = "";
-    renderWeight();
-  });
-
-  $("exportWeightBtn").addEventListener("click", () => {
-    const entries = sortedWeight(loadWeight());
-    const lines = ["date,weight_kg", ...entries.map((e) => `${e.date},${e.weight.toFixed(1)}`)];
-    downloadCsv("vaha-33.csv", lines);
-  });
-
-  weightLog.addEventListener("click", (ev) => {
-    const btn = ev.target.closest(".del");
-    if (!btn) return;
-    const id = btn.dataset.id;
-    const e = loadWeight().find((x) => x.id === id);
-    pendingDelete = { type: "weight", id };
-    confirmText.textContent = e
-      ? `Smazat ${e.weight.toFixed(1)} kg z ${formatCs(e.date)}?`
-      : "Smazat záznam?";
-    confirmDialog.showModal();
-  });
-
-  // —— core / minutes ——
+  // —— core ——
   function loadCore() {
-    try {
-      const raw = localStorage.getItem(CORE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+    return loadJSON(CORE_KEY, () => [])
+      .map((e) => ({
+        id: e.id || uid(),
+        date: e.date,
+        mins: Number(e.mins) || 0,
+        ts: e.ts || 0,
+      }))
+      .filter((e) => e.date && e.mins > 0);
   }
 
   function saveCore(entries) {
-    localStorage.setItem(CORE_KEY, JSON.stringify(entries));
+    saveJSON(CORE_KEY, entries);
   }
 
   function sortedCore(entries) {
-    return [...entries].sort((a, b) => {
-      if (a.date === b.date) return (a.ts || 0) - (b.ts || 0);
-      return a.date < b.date ? -1 : 1;
-    });
+    return [...entries].sort((a, b) => byDateAsc(a, b, (x, y) => (x.ts || 0) - (y.ts || 0)));
   }
 
-  /** Sum minutes per day for last N calendar days including today */
   function dailyTotals(entries, days) {
     const today = todayISO();
     const map = new Map();
-    for (let i = 0; i < days; i++) {
-      map.set(shiftIso(today, -i), 0);
-    }
+    for (let i = 0; i < days; i++) map.set(shiftIso(today, -i), 0);
     for (const e of entries) {
       if (map.has(e.date)) map.set(e.date, map.get(e.date) + e.mins);
     }
     return map;
   }
 
-  function minutesOn(entries, iso) {
-    return entries.filter((e) => e.date === iso).reduce((s, e) => s + e.mins, 0);
-  }
-
   function setDraft(n) {
     draftMins = Math.max(0, n);
-    draftMinsEl.textContent = `${draftMins} min`;
-    const active = draftMins > 0;
-    draftCancel.disabled = !active;
-    draftConfirm.disabled = !active;
+    els.draftMins.textContent = `${draftMins} min`;
+    const on = draftMins > 0;
+    els.draftCancel.disabled = !on;
+    els.draftConfirm.disabled = !on;
   }
 
   function renderCore() {
     const entries = loadCore();
     const today = todayISO();
-    const todayTotal = minutesOn(entries, today);
+    const weekMap = dailyTotals(entries, 7);
+    const monthMap = dailyTotals(entries, 30);
+    const todayTotal = weekMap.get(today) || 0;
     const left = Math.max(DAILY_GOAL - todayTotal, 0);
+    const weekVals = [...weekMap.values()];
+    const monthVals = [...monthMap.values()];
+    const weekHit = weekVals.filter((m) => m >= DAILY_GOAL).length;
+    const monthHit = monthVals.filter((m) => m >= DAILY_GOAL).length;
+    const weekSum = weekVals.reduce((a, b) => a + b, 0);
+    const weekAvg = weekSum / 7;
 
-    $("todayMins").textContent = String(todayTotal);
-    $("coreMeta").textContent =
+    els.todayMins.textContent = String(todayTotal);
+    els.coreMeta.textContent =
       todayTotal >= DAILY_GOAL
         ? `cíl ${DAILY_GOAL} · +${todayTotal - DAILY_GOAL} navíc`
         : `cíl ${DAILY_GOAL} · zbývá ${left} min`;
 
-    const weekMap = dailyTotals(entries, 7);
-    const monthMap = dailyTotals(entries, 30);
-    const weekHit = [...weekMap.values()].filter((m) => m >= DAILY_GOAL).length;
-    const monthHit = [...monthMap.values()].filter((m) => m >= DAILY_GOAL).length;
-    const weekSum = [...weekMap.values()].reduce((a, b) => a + b, 0);
-    const weekAvg = weekSum / 7;
+    setStat(els.coreWeek, `${weekHit}/7`, weekHit >= 7 ? "ok" : weekHit >= 4 ? "flat" : "bad");
+    setStat(els.coreMonth, `${monthHit}/30`, monthHit >= 25 ? "ok" : monthHit >= 15 ? "flat" : "bad");
+    setStat(els.coreAvg, weekAvg.toFixed(1), weekAvg >= DAILY_GOAL ? "ok" : "bad");
 
-    const weekEl = $("coreWeek");
-    const monthEl = $("coreMonth");
-    const avgEl = $("coreAvg");
-
-    weekEl.textContent = `${weekHit}/7`;
-    weekEl.className = `stat-value ${weekHit >= 7 ? "ok" : weekHit >= 4 ? "flat" : "bad"}`;
-    monthEl.textContent = `${monthHit}/30`;
-    monthEl.className = `stat-value ${monthHit >= 25 ? "ok" : monthHit >= 15 ? "flat" : "bad"}`;
-    avgEl.textContent = weekAvg.toFixed(1);
-    avgEl.className = `stat-value ${weekAvg >= DAILY_GOAL ? "ok" : "bad"}`;
-
-    $("corePlan").innerHTML =
+    els.corePlan.innerHTML =
       `celkem 7 d <strong>${weekSum}</strong> min · ` +
       `dnes <strong>${todayTotal >= DAILY_GOAL ? "OK" : "−" + left}</strong>`;
 
-    coreLog.innerHTML = "";
-    for (const e of sortedCore(entries).reverse()) {
-      const li = document.createElement("li");
-      const hit = minutesOn(entries, e.date) >= DAILY_GOAL;
-      li.innerHTML = `
-        <span class="date">${formatCs(e.date)}${hit ? " · ≥15" : ""}</span>
-        <span class="val">+${e.mins} min</span>
-        <button type="button" class="del" aria-label="smazat" data-id="${e.id}">×</button>
-      `;
-      coreLog.appendChild(li);
-    }
+    const dayHit = new Map();
+    for (const e of entries) dayHit.set(e.date, (dayHit.get(e.date) || 0) + e.mins);
+
+    fillLog(
+      els.coreLog,
+      sortedCore(entries)
+        .reverse()
+        .map((e) => ({
+          id: e.id,
+          date: `${formatCs(e.date)}${(dayHit.get(e.date) || 0) >= DAILY_GOAL ? " · ≥15" : ""}`,
+          val: `+${e.mins} min`,
+        }))
+    );
   }
 
+  // —— events ——
+  $("openWeight").addEventListener("click", () => showView("weight"));
+  $("openCore").addEventListener("click", () => showView("core"));
+  document.querySelectorAll("[data-home]").forEach((btn) => {
+    btn.addEventListener("click", () => showView("home"));
+  });
+
+  $("saveBtn").addEventListener("click", () => {
+    const w = Number(String(els.weightInput.value).replace(",", "."));
+    const d = els.dateInput.value || todayISO();
+    if (!Number.isFinite(w) || w < 40 || w > 300) {
+      els.weightInput.focus();
+      return;
+    }
+    const entries = loadWeight().filter((e) => e.date !== d);
+    entries.push({ id: uid(), date: d, weight: Math.round(w * 10) / 10 });
+    saveWeight(entries);
+    els.weightInput.value = "";
+    renderWeight();
+  });
+
+  $("exportWeightBtn").addEventListener("click", () => {
+    const rows = sortedWeight(loadWeight()).map((e) => `${e.date},${e.weight.toFixed(1)}`);
+    downloadCsv("vaha-33.csv", ["date,weight_kg", ...rows]);
+  });
+
+  els.weightLog.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".del");
+    if (!btn) return;
+    const e = loadWeight().find((x) => x.id === btn.dataset.id);
+    askDelete(
+      "weight",
+      btn.dataset.id,
+      e ? `Smazat ${e.weight.toFixed(1)} kg z ${formatCs(e.date)}?` : "Smazat záznam?"
+    );
+  });
+
   $("plus5").addEventListener("click", () => setDraft(draftMins + 5));
-
-  draftCancel.addEventListener("click", () => setDraft(0));
-
-  draftConfirm.addEventListener("click", () => {
+  els.draftCancel.addEventListener("click", () => setDraft(0));
+  els.draftConfirm.addEventListener("click", () => {
     if (draftMins <= 0) return;
     const entries = loadCore();
-    entries.push({
-      id: uid(),
-      date: todayISO(),
-      mins: draftMins,
-      ts: Date.now(),
-    });
+    entries.push({ id: uid(), date: todayISO(), mins: draftMins, ts: Date.now() });
     saveCore(entries);
     setDraft(0);
     renderCore();
   });
 
   $("exportCoreBtn").addEventListener("click", () => {
-    const entries = sortedCore(loadCore());
-    const lines = ["date,minutes", ...entries.map((e) => `${e.date},${e.mins}`)];
-    downloadCsv("cviceni-33.csv", lines);
+    const rows = sortedCore(loadCore()).map((e) => `${e.date},${e.mins}`);
+    downloadCsv("cviceni-33.csv", ["date,minutes", ...rows]);
   });
 
-  coreLog.addEventListener("click", (ev) => {
+  els.coreLog.addEventListener("click", (ev) => {
     const btn = ev.target.closest(".del");
-    if (!btn || !btn.dataset.id) return;
-    const id = btn.dataset.id;
-    const e = loadCore().find((x) => x.id === id);
-    pendingDelete = { type: "core", id };
-    confirmText.textContent = e
-      ? `Smazat +${e.mins} min z ${formatCs(e.date)}?`
-      : "Smazat záznam?";
-    confirmDialog.showModal();
+    if (!btn?.dataset.id) return;
+    const e = loadCore().find((x) => x.id === btn.dataset.id);
+    askDelete(
+      "core",
+      btn.dataset.id,
+      e ? `Smazat +${e.mins} min z ${formatCs(e.date)}?` : "Smazat záznam?"
+    );
   });
 
-  // —— shared delete / export ——
-  function downloadCsv(name, lines) {
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  confirmCancel.addEventListener("click", () => {
+  $("confirmCancel").addEventListener("click", () => {
     pendingDelete = null;
-    confirmDialog.close();
+    els.dialog.close();
   });
 
-  confirmOk.addEventListener("click", () => {
+  $("confirmOk").addEventListener("click", () => {
     if (pendingDelete?.type === "weight") {
       const next = loadWeight().filter((e) => e.id !== pendingDelete.id);
-      saveWeight(next.length ? next : [{ id: "seed", date: START_DATE, weight: START_WEIGHT }]);
+      saveWeight(next.length ? next : [{ ...SEED }]);
       renderWeight();
-    }
-    if (pendingDelete?.type === "core") {
+    } else if (pendingDelete?.type === "core") {
       saveCore(loadCore().filter((e) => e.id !== pendingDelete.id));
       renderCore();
     }
     pendingDelete = null;
-    confirmDialog.close();
+    els.dialog.close();
   });
 
   // —— boot ——
-  if (!localStorage.getItem(WEIGHT_KEY)) {
-    saveWeight([{ id: "seed", date: START_DATE, weight: START_WEIGHT }]);
-  }
+  if (!localStorage.getItem(WEIGHT_KEY)) saveWeight([{ ...SEED }]);
   setDraft(0);
   showView("home");
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").then((reg) => {
-      reg.update();
-    }).catch(() => {});
+    navigator.serviceWorker.register("./sw.js").then((reg) => reg.update()).catch(() => {});
   }
 })();
